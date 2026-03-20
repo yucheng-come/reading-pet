@@ -1,9 +1,9 @@
 """管理后台页面"""
 import streamlit as st
-import sys, os, uuid
+import sys, os, uuid, csv, io
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.auth import is_admin, get_user
+from utils.auth import is_admin, get_user, batch_import_users, reset_password_by_idcard, id_card_to_password, _hash_password
 from utils.data_io import read_json, write_json
 from utils.points_engine import get_balance
 from utils.time_utils import now_str, this_month_str
@@ -16,49 +16,176 @@ if not st.session_state.get("logged_in"):
 
 sid = st.session_state.student_id
 if not is_admin(sid):
-    st.error("🚫 仅管理员可访问此页面")
+    st.error("仅管理员可访问此页面")
     st.stop()
 
 st.title("🔧 管理后台")
 
-tab_users, tab_reviews, tab_challenges, tab_stats = st.tabs(
-    ["👤 用户管理", "📝 书评审核", "🎯 挑战管理", "📊 数据统计"]
+tab_users, tab_import, tab_reviews, tab_challenges, tab_stats = st.tabs(
+    ["👤 用户管理", "📥 账号导入", "📝 书评审核", "🎯 挑战管理", "📊 数据统计"]
 )
 
 # ── 用户管理 ──
 with tab_users:
     st.subheader("用户列表")
     users = read_json("users.json")
-    if not users:
-        st.info("暂无用户")
-    else:
-        # 搜索
-        search = st.text_input("搜索用户（学号或姓名）", key="user_search")
-        user_list = []
-        for uid, u in users.items():
-            if u.get("is_admin"):
-                continue
-            if search and search not in uid and search not in u.get("name", ""):
-                continue
-            user_list.append(u)
 
-        st.caption(f"共 {len(user_list)} 个用户")
-        for u in user_list:
-            bal = get_balance(u["student_id"])
-            with st.expander(f"{u['name']} ({u['student_id']}) — {u['college']} — 积分: {bal}"):
-                st.markdown(f"**学号**: {u['student_id']}")
-                st.markdown(f"**姓名**: {u['name']}")
-                st.markdown(f"**学院**: {u['college']}")
-                st.markdown(f"**专业**: {u['major']}")
-                st.markdown(f"**积分**: {bal}")
-                # 重置密码
-                if st.button(f"重置密码为学号后8位", key=f"reset_{u['student_id']}"):
-                    import hashlib
-                    new_pwd = u["student_id"][-8:]
-                    u["password"] = hashlib.sha256((new_pwd + u["student_id"]).encode()).hexdigest()
-                    users[u["student_id"]] = u
-                    write_json("users.json", users)
-                    st.success(f"密码已重置为: {new_pwd}")
+    # 添加单个账号
+    st.markdown("#### 添加账号")
+    with st.form("add_user_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            a_sid = st.text_input("学号", placeholder="请输入学号")
+            a_name = st.text_input("姓名", placeholder="请输入姓名")
+            a_idcard = st.text_input("身份证号", placeholder="请输入身份证号")
+        with col2:
+            a_college = st.text_input("学院", placeholder="请输入学院")
+            a_major = st.text_input("专业", placeholder="请输入专业")
+            st.caption("密码自动设为身份证后八位（X→0）")
+        if st.form_submit_button("添加账号", use_container_width=True):
+            if not all([a_sid, a_name, a_college, a_major, a_idcard]):
+                st.error("所有字段均为必填")
+            elif a_sid in users:
+                st.error("该学号已存在")
+            elif len(a_idcard) < 8:
+                st.error("身份证号长度不正确")
+            else:
+                pwd = id_card_to_password(a_idcard)
+                users[a_sid] = {
+                    "student_id": a_sid,
+                    "name": a_name,
+                    "college": a_college,
+                    "major": a_major,
+                    "id_card_last8": pwd,
+                    "password": _hash_password(pwd, a_sid),
+                    "is_admin": False,
+                }
+                write_json("users.json", users)
+                st.success(f"账号 {a_sid} 添加成功！密码为身份证后八位")
+                st.rerun()
+
+    st.divider()
+
+    # 搜索与列表
+    search = st.text_input("搜索用户（学号或姓名）", key="user_search")
+    user_list = []
+    for uid, u in users.items():
+        if u.get("is_admin"):
+            continue
+        if search and search not in uid and search not in u.get("name", ""):
+            continue
+        user_list.append(u)
+
+    st.caption(f"共 {len(user_list)} 个用户")
+    for u in user_list:
+        bal = get_balance(u["student_id"])
+        with st.expander(f"{u['name']} ({u['student_id']}) — {u['college']} — 积分: {bal}"):
+            st.markdown(f"**学号**: {u['student_id']}")
+            st.markdown(f"**姓名**: {u['name']}")
+            st.markdown(f"**学院**: {u['college']}")
+            st.markdown(f"**专业**: {u['major']}")
+            st.markdown(f"**积分**: {bal}")
+            # 重置密码
+            reset_idcard = st.text_input("输入身份证号重置密码", key=f"idcard_{u['student_id']}", placeholder="输入该用户身份证号")
+            if st.button("重置密码为身份证后八位", key=f"reset_{u['student_id']}"):
+                if not reset_idcard or len(reset_idcard) < 8:
+                    st.error("请输入有效的身份证号")
+                else:
+                    ok, msg = reset_password_by_idcard(u['student_id'], reset_idcard)
+                    if ok:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+
+# ── 账号导入与对比 ──
+with tab_import:
+    st.subheader("📥 账号信息库导入与对比")
+    st.markdown("""
+    上传 CSV 文件，格式要求（含表头）：
+
+    | student_id | name | college | major | id_card |
+    |------------|------|---------|-------|---------|
+    | 2024001 | 张三 | 计算机学院 | 软件工程 | 110101200001011234 |
+
+    - 密码自动设置为身份证后八位（末位X自动转为0）
+    - 已存在的学号将跳过，不会覆盖
+    """)
+
+    uploaded = st.file_uploader("选择 CSV 文件", type=["csv"])
+    if uploaded:
+        try:
+            content = uploaded.read().decode("utf-8-sig")
+            reader = csv.DictReader(io.StringIO(content))
+            records = list(reader)
+        except Exception as e:
+            st.error(f"文件读取失败: {e}")
+            records = []
+
+        if records:
+            st.markdown(f"**读取到 {len(records)} 条记录**")
+
+            # 对比分析
+            users = read_json("users.json")
+            new_records = []
+            existing_records = []
+            invalid_records = []
+            for r in records:
+                s = str(r.get("student_id", "")).strip()
+                if not s or not r.get("name", "").strip():
+                    invalid_records.append(r)
+                elif s in users:
+                    existing_records.append(r)
+                else:
+                    new_records.append(r)
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("新增账号", len(new_records), delta=None)
+            col2.metric("已存在（跳过）", len(existing_records))
+            col3.metric("信息不全", len(invalid_records))
+
+            # 预览新增
+            if new_records:
+                st.markdown("#### 即将新增的账号")
+                preview_data = []
+                for r in new_records[:20]:
+                    preview_data.append({
+                        "学号": r.get("student_id", ""),
+                        "姓名": r.get("name", ""),
+                        "学院": r.get("college", ""),
+                        "专业": r.get("major", ""),
+                    })
+                st.dataframe(preview_data, use_container_width=True)
+                if len(new_records) > 20:
+                    st.caption(f"... 还有 {len(new_records) - 20} 条未显示")
+
+            # 预览已存在
+            if existing_records:
+                with st.expander(f"查看已存在的 {len(existing_records)} 个账号"):
+                    for r in existing_records:
+                        s = str(r.get("student_id", "")).strip()
+                        u = users.get(s, {})
+                        file_name = str(r.get("name", "")).strip()
+                        db_name = u.get("name", "")
+                        match = "✅" if file_name == db_name else f"⚠️ 库中为「{db_name}」"
+                        st.markdown(f"- {s} {file_name} {match}")
+
+            # 预览无效
+            if invalid_records:
+                with st.expander(f"查看信息不全的 {len(invalid_records)} 条"):
+                    for r in invalid_records:
+                        st.markdown(f"- {r}")
+
+            # 执行导入
+            if new_records:
+                if st.button(f"确认导入 {len(new_records)} 个新账号", use_container_width=True, type="primary"):
+                    success, skipped, errors = batch_import_users(new_records)
+                    st.success(f"导入完成！成功 {success} 个，跳过 {skipped} 个")
+                    if errors:
+                        for e in errors:
+                            st.warning(e)
+                    st.rerun()
+            elif not invalid_records:
+                st.info("所有账号均已存在，无需导入")
 
 # ── 书评审核 ──
 with tab_reviews:
@@ -71,7 +198,7 @@ with tab_reviews:
     else:
         st.caption(f"共 {len(pending)} 篇待审核")
         for r in pending:
-            with st.expander(f"📕 《{r['book']}》— {r.get('author_name', '匿名')} ({r.get('time', '')})"):
+            with st.expander(f"《{r['book']}》— {r.get('author_name', '匿名')} ({r.get('time', '')})"):
                 st.markdown(f"**作者**: {r.get('book_author', '')}")
                 st.markdown(f"**评分**: {'⭐' * r.get('rating', 0)}")
                 st.markdown(f"**字数**: {len(r.get('content', ''))}")
@@ -119,7 +246,6 @@ with tab_challenges:
     if not isinstance(challenges, list):
         challenges = []
 
-    # 创建新挑战
     st.markdown("#### 创建新挑战")
     with st.form("new_challenge"):
         c_title = st.text_input("挑战标题")
@@ -166,7 +292,6 @@ with tab_stats:
     users = read_json("users.json")
     logs = read_json("points_log.json")
     reviews = read_json("reviews.json")
-    pets = read_json("pets.json")
 
     user_count = sum(1 for u in users.values() if not u.get("is_admin"))
     total_points = sum(l["amount"] for l in logs if l["amount"] > 0)
@@ -182,7 +307,6 @@ with tab_stats:
 
     st.divider()
 
-    # 每日积分趋势
     st.markdown("#### 近7天积分发放")
     from datetime import date, timedelta
     daily_points = {}
@@ -196,7 +320,6 @@ with tab_stats:
 
     st.divider()
 
-    # 学院分布
     st.markdown("#### 学院用户分布")
     college_counts = {}
     for u in users.values():
