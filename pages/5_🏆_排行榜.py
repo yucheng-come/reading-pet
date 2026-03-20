@@ -2,11 +2,14 @@
 import streamlit as st
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.ranking_engine import get_personal_ranking, get_college_ranking
 from utils.time_utils import this_month_str
 
 st.set_page_config(page_title="排行榜", page_icon="🏆")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")

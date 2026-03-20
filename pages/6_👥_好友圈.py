@@ -2,6 +2,7 @@
 import streamlit as st
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.data_io import read_json, write_json
 from utils.auth import get_user
@@ -12,6 +13,8 @@ from utils.time_utils import now_str, today_str
 from config import GIFT_COST, GIFT_RECEIVE, PET_TYPE_NAMES
 
 st.set_page_config(page_title="好友圈", page_icon="👥")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")

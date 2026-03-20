@@ -2,6 +2,7 @@
 import streamlit as st
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.pet_engine import get_pet, get_level, next_level, feed, interact, recall, choose_type
 from utils.points_engine import get_balance
@@ -9,6 +10,8 @@ from assets.pet_art import get_pet_emoji, STATUS_EMOJIS
 from config import PET_TYPES, PET_TYPE_NAMES, FEED_COST, FEED_DAILY_MAX, INTERACT_COST, INTERACT_TYPES, RECALL_COST, SHOP_ITEMS
 
 st.set_page_config(page_title="我的宠物", page_icon="🐾")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")

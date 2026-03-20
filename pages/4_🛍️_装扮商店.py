@@ -2,6 +2,7 @@
 import streamlit as st
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.points_engine import get_balance, spend_points
 from utils.pet_engine import get_pet, equip_item
@@ -9,6 +10,8 @@ from utils.data_io import read_json, update_dict
 from config import SHOP_ITEMS, CATEGORY_NAMES
 
 st.set_page_config(page_title="装扮商店", page_icon="🛍️")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")

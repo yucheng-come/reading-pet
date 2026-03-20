@@ -2,6 +2,7 @@
 import streamlit as st
 import sys, os, uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.data_io import read_json, write_json, append_to_list
 from utils.points_engine import earn_points, get_balance
@@ -9,6 +10,8 @@ from utils.time_utils import now_str, this_month_str
 from config import REVIEW_MIN_LENGTH
 
 st.set_page_config(page_title="书评广场", page_icon="📝")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")

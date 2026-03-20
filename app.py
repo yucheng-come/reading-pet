@@ -6,6 +6,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.auth import login, register
+from utils.sidebar import setup_sidebar
 
 st.set_page_config(
     page_title="悦读养成记",
@@ -116,10 +117,7 @@ def do_logout():
 
 # ── 已登录 ──
 if st.session_state.logged_in:
-    st.sidebar.success(f"已登录：{st.session_state.user_name}（{st.session_state.student_id}）")
-    if st.sidebar.button("退出登录"):
-        do_logout()
-        st.rerun()
+    setup_sidebar()
 
     st.markdown(f"""
     <div class="welcome-banner">

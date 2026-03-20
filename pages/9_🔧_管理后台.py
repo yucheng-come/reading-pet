@@ -2,6 +2,7 @@
 import streamlit as st
 import sys, os, uuid, csv, io
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.auth import is_admin, get_user, batch_import_users, reset_password_by_idcard, id_card_to_password, _hash_password
 from utils.data_io import read_json, write_json
@@ -9,6 +10,8 @@ from utils.points_engine import get_balance
 from utils.time_utils import now_str, this_month_str
 
 st.set_page_config(page_title="管理后台", page_icon="🔧")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")

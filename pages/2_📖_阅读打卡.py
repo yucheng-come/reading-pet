@@ -2,6 +2,7 @@
 import streamlit as st
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from utils.sidebar import setup_sidebar
 
 from utils.points_engine import earn_points, get_balance, today_remaining
 from utils.data_io import read_json, append_to_list
@@ -9,6 +10,8 @@ from utils.time_utils import today_str, now_str, streak_days
 from config import POINTS_RULES
 
 st.set_page_config(page_title="阅读打卡", page_icon="📖")
+
+setup_sidebar()
 
 if not st.session_state.get("logged_in"):
     st.warning("请先登录")
