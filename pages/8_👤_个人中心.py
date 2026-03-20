@@ -86,7 +86,14 @@ with st.form("change_pwd"):
         else:
             ok, msg = change_password(sid, old_pwd, new_pwd)
             if ok:
-                st.success(msg)
+                st.success(msg + " 即将跳转到登录页面...")
+                st.session_state.logged_in = False
+                st.session_state.student_id = ""
+                st.session_state.user_name = ""
+                st.session_state.is_admin = False
+                import time
+                time.sleep(1.5)
+                st.switch_page("app.py")
             else:
                 st.error(msg)
 
