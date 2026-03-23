@@ -1,13 +1,12 @@
 """好友圈页面"""
 import streamlit as st
-import sys, os
+import sys, os, uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils.sidebar import setup_sidebar
 
-from utils.data_io import read_json, write_json
-from utils.auth import get_user
+from utils.data_io import read_json, write_json, append_to_list
 from utils.points_engine import get_balance, spend_points
-from utils.pet_engine import get_pet, get_level
+from utils.pet_engine import get_level
 from assets.pet_art import get_pet_emoji
 from utils.time_utils import now_str, today_str
 from config import GIFT_COST, GIFT_RECEIVE, PET_TYPE_NAMES
@@ -26,11 +25,13 @@ balance = get_balance(sid)
 st.title("👥 好友圈")
 st.caption(f"当前积分: {balance}")
 
-# 读取好友数据
+# 一次性读取所有数据
 friends_data = read_json("friends.json")
 if not isinstance(friends_data, dict):
     friends_data = {}
 my_friends = friends_data.get(sid, [])
+all_users = read_json("users.json")
+all_pets = read_json("pets.json")
 
 tab_add, tab_list, tab_gift = st.tabs(["➕ 添加好友", "👥 好友列表", "🎁 送礼物"])
 
@@ -47,7 +48,7 @@ with tab_add:
             elif friend_id in my_friends:
                 st.error("已经是好友了")
             else:
-                friend_user = get_user(friend_id)
+                friend_user = all_users.get(friend_id)
                 if not friend_user:
                     st.error("该学号不存在")
                 elif friend_user.get("is_admin"):
@@ -71,13 +72,13 @@ with tab_list:
         st.info("还没有好友，快去添加吧！")
     else:
         for fid in my_friends:
-            friend_user = get_user(fid)
+            friend_user = all_users.get(fid)
             if not friend_user:
                 continue
-            friend_pet = get_pet(fid)
-            friend_level = get_level(friend_pet["growth"])
-            friend_emoji = get_pet_emoji(friend_pet["type"], friend_level["emoji_key"])
-            type_name = PET_TYPE_NAMES.get(friend_pet["type"], "未选择") if friend_pet["type"] else "未选择"
+            friend_pet = all_pets.get(fid, {})
+            friend_level = get_level(friend_pet.get("growth", 0))
+            friend_emoji = get_pet_emoji(friend_pet.get("type"), friend_level["emoji_key"])
+            type_name = PET_TYPE_NAMES.get(friend_pet.get("type"), "未选择") if friend_pet.get("type") else "未选择"
 
             with st.expander(f"{friend_emoji} {friend_user['name']} ({fid}) — Lv.{friend_level['level']} {friend_level['name']}"):
                 col1, col2 = st.columns(2)
@@ -85,8 +86,8 @@ with tab_list:
                     st.markdown(f"**学院**: {friend_user['college']}")
                     st.markdown(f"**宠物类型**: {type_name}")
                 with col2:
-                    st.markdown(f"**成长值**: {friend_pet['growth']}")
-                    st.markdown(f"**状态**: {friend_pet['status']}")
+                    st.markdown(f"**成长值**: {friend_pet.get('growth', 0)}")
+                    st.markdown(f"**状态**: {friend_pet.get('status', 'normal')}")
                 # 删除好友
                 if st.button(f"删除好友", key=f"del_{fid}"):
                     my_friends.remove(fid)
@@ -111,7 +112,7 @@ with tab_gift:
         today_gifts = [l for l in logs if l["student_id"] == sid and l["action"] == "spend" and "送礼" in l.get("note", "") and l["time"][:10] == today]
 
         for fid in my_friends:
-            friend_user = get_user(fid)
+            friend_user = all_users.get(fid)
             if not friend_user:
                 continue
             already_gifted = any(fid in l.get("note", "") for l in today_gifts)
@@ -126,8 +127,6 @@ with tab_gift:
                         ok, msg = spend_points(sid, GIFT_COST, f"送礼给 {fid}")
                         if ok:
                             # 双方各得积分（直接记录正积分）
-                            from utils.data_io import append_to_list
-                            import uuid
                             for target_id in [sid, fid]:
                                 append_to_list("points_log.json", {
                                     "id": str(uuid.uuid4())[:8],

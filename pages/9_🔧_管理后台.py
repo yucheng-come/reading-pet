@@ -80,8 +80,15 @@ with tab_users:
         user_list.append(u)
 
     st.caption(f"共 {len(user_list)} 个用户")
+
+    # 一次性计算所有用户余额，避免 N+1 查询
+    all_logs = read_json("points_log.json")
+    balance_map = {}
+    for l in all_logs:
+        balance_map[l["student_id"]] = balance_map.get(l["student_id"], 0) + l["amount"]
+
     for u in user_list:
-        bal = get_balance(u["student_id"])
+        bal = balance_map.get(u["student_id"], 0)
         with st.expander(f"{u['name']} ({u['student_id']}) — {u['college']} — 积分: {bal}"):
             st.markdown(f"**学号**: {u['student_id']}")
             st.markdown(f"**姓名**: {u['name']}")
