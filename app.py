@@ -176,6 +176,11 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
+        # 注册成功后显示提示
+        if st.session_state.get("show_login"):
+            st.success("注册成功！请登录。")
+            st.session_state.show_login = False
+
         tab_login, tab_register = st.tabs(["🔑 登录", "📝 注册"])
 
         with tab_login:
@@ -208,6 +213,10 @@ else:
                 if r_submit:
                     ok, msg = register(r_sid, r_name, r_college, r_major, r_idcard)
                     if ok:
-                        st.success(msg + " 请切换到登录标签页登录。")
+                        st.success(msg + " 即将跳转到登录...")
+                        st.session_state.show_login = True
+                        import time
+                        time.sleep(1.5)
+                        st.rerun()
                     else:
                         st.error(msg)
