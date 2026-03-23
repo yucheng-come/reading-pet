@@ -7,7 +7,7 @@ from utils.sidebar import setup_sidebar
 from utils.auth import is_admin, get_user, batch_import_users, reset_password_by_idcard, id_card_to_password, _hash_password
 from utils.data_io import read_json, write_json
 from utils.points_engine import get_balance, earn_points
-from utils.time_utils import now_str, this_month_str
+from utils.time_utils import now_str, this_month_str, today_str
 
 st.set_page_config(page_title="管理后台", page_icon="🔧")
 
@@ -24,8 +24,8 @@ if not is_admin(sid):
 
 st.title("🔧 管理后台")
 
-tab_users, tab_import, tab_reviews, tab_challenges, tab_stats = st.tabs(
-    ["👤 用户管理", "📥 账号导入", "📝 书评审核", "🎯 挑战管理", "📊 数据统计"]
+tab_users, tab_import, tab_borrow, tab_reviews, tab_challenges, tab_stats = st.tabs(
+    ["👤 用户管理", "📥 账号导入", "📚 借阅导入", "📝 书评审核", "🎯 挑战管理", "📊 数据统计"]
 )
 
 # ── 用户管理 ──
@@ -196,6 +196,159 @@ with tab_import:
                     st.rerun()
             elif not invalid_records:
                 st.info("所有账号均已存在，无需导入")
+
+# ── 借阅记录导入 ──
+with tab_borrow:
+    st.subheader("📚 借阅记录批量导入")
+    st.markdown("""
+    从学习通或图书馆系统导出借阅记录 CSV，上传后自动为学生发放积分。
+
+    **CSV 格式要求（含表头）：**
+
+    | student_id | book | action | date |
+    |------------|------|--------|------|
+    | 2024001 | 红楼梦 | borrow | 2026-03-20 |
+    | 2024001 | 三体 | return | 2026-03-21 |
+
+    - **action**: `borrow`（借阅，+10积分）或 `return`（归还，+5积分）
+    - **date**: 借还日期（YYYY-MM-DD），留空则默认今天
+    - 系统会自动去重，同一学号同一天同一本书同一操作不会重复计分
+    """)
+
+    borrow_file = st.file_uploader("选择借阅记录 CSV", type=["csv"], key="borrow_csv")
+    if borrow_file:
+        try:
+            b_content = borrow_file.read().decode("utf-8-sig")
+            b_reader = csv.DictReader(io.StringIO(b_content))
+            b_records = list(b_reader)
+        except Exception as e:
+            st.error(f"文件读取失败: {e}")
+            b_records = []
+
+        if b_records:
+            st.markdown(f"**读取到 {len(b_records)} 条记录**")
+
+            # 预处理和分类
+            users = read_json("users.json")
+            existing_logs = read_json("points_log.json")
+
+            # 构建已有记录指纹集合（用于去重）
+            existing_fingerprints = set()
+            for l in existing_logs:
+                if l["action"] in ("borrow", "return"):
+                    # 指纹 = 学号+操作+日期+书名关键词
+                    note = l.get("note", "")
+                    fp = f"{l['student_id']}|{l['action']}|{l['time'][:10]}|{note}"
+                    existing_fingerprints.add(fp)
+
+            valid_records = []
+            unknown_students = []
+            invalid_records = []
+            duplicate_records = []
+
+            for r in b_records:
+                r_sid = str(r.get("student_id", "")).strip()
+                r_book = str(r.get("book", "")).strip()
+                r_action = str(r.get("action", "")).strip().lower()
+                r_date = str(r.get("date", "")).strip() or today_str()
+
+                # 验证字段
+                if not r_sid or not r_book:
+                    invalid_records.append(r)
+                    continue
+                if r_action not in ("borrow", "return"):
+                    invalid_records.append(r)
+                    continue
+
+                # 检查学号是否存在
+                if r_sid not in users:
+                    unknown_students.append(r)
+                    continue
+
+                # 去重检查
+                action_label = "借阅" if r_action == "borrow" else "归还"
+                note = f"{action_label}《{r_book}》"
+                fp = f"{r_sid}|{r_action}|{r_date}|{note}"
+                if fp in existing_fingerprints:
+                    duplicate_records.append(r)
+                    continue
+
+                existing_fingerprints.add(fp)
+                valid_records.append({
+                    "student_id": r_sid,
+                    "book": r_book,
+                    "action": r_action,
+                    "date": r_date,
+                    "note": note,
+                    "name": users[r_sid].get("name", ""),
+                })
+
+            # 统计概览
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("可导入", len(valid_records))
+            col2.metric("已存在（跳过）", len(duplicate_records))
+            col3.metric("学号不存在", len(unknown_students))
+            col4.metric("格式错误", len(invalid_records))
+
+            # 积分预估
+            if valid_records:
+                from config import POINTS_RULES
+                borrow_pts = POINTS_RULES["borrow"]["points"]
+                return_pts = POINTS_RULES["return"]["points"]
+                est_borrow = sum(1 for r in valid_records if r["action"] == "borrow")
+                est_return = sum(1 for r in valid_records if r["action"] == "return")
+                total_est = est_borrow * borrow_pts + est_return * return_pts
+                st.info(f"预计发放积分: 借阅 {est_borrow} 次(+{est_borrow * borrow_pts}) + 归还 {est_return} 次(+{est_return * return_pts}) = **{total_est} 积分**")
+
+                # 预览列表
+                st.markdown("#### 即将导入的记录")
+                preview = []
+                for r in valid_records[:30]:
+                    action_cn = "📗 借阅" if r["action"] == "borrow" else "📕 归还"
+                    pts = borrow_pts if r["action"] == "borrow" else return_pts
+                    preview.append({
+                        "学号": r["student_id"],
+                        "姓名": r["name"],
+                        "书名": r["book"],
+                        "操作": action_cn,
+                        "日期": r["date"],
+                        "积分": f"+{pts}",
+                    })
+                st.dataframe(preview, use_container_width=True)
+                if len(valid_records) > 30:
+                    st.caption(f"... 还有 {len(valid_records) - 30} 条未显示")
+
+                # 执行导入
+                if st.button(f"确认导入 {len(valid_records)} 条借阅记录", use_container_width=True, type="primary"):
+                    success_count = 0
+                    fail_count = 0
+                    for r in valid_records:
+                        ok, msg, pts = earn_points(r["student_id"], r["action"], r["note"])
+                        if ok:
+                            success_count += 1
+                        else:
+                            fail_count += 1
+                    result_msg = f"导入完成！成功 {success_count} 条"
+                    if fail_count > 0:
+                        result_msg += f"，{fail_count} 条因当日上限跳过"
+                    st.toast(result_msg)
+                    st.rerun()
+
+            # 显示问题记录
+            if unknown_students:
+                with st.expander(f"查看学号不存在的 {len(unknown_students)} 条"):
+                    for r in unknown_students:
+                        st.markdown(f"- {r.get('student_id', '')} 《{r.get('book', '')}》")
+
+            if invalid_records:
+                with st.expander(f"查看格式错误的 {len(invalid_records)} 条"):
+                    for r in invalid_records:
+                        st.markdown(f"- {r}")
+
+            if duplicate_records:
+                with st.expander(f"查看已存在的 {len(duplicate_records)} 条"):
+                    for r in duplicate_records:
+                        st.markdown(f"- {r.get('student_id', '')} 《{r.get('book', '')}》 {r.get('action', '')} {r.get('date', '')}")
 
 # ── 书评审核 ──
 with tab_reviews:
