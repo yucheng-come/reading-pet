@@ -1,6 +1,6 @@
 """阅读打卡页面"""
 import streamlit as st
-import sys, os
+import sys, os, uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils.sidebar import setup_sidebar
 
@@ -63,35 +63,62 @@ else:
 
 st.divider()
 
-# ── 借阅图书 ──
+# ── 借阅图书（提交审核） ──
 st.subheader("📚 借阅图书")
 with st.form("borrow_form"):
     book_name = st.text_input("书名", placeholder="请输入借阅的书名")
-    if st.form_submit_button("记录借阅", use_container_width=True):
+    if st.form_submit_button("提交借阅记录", use_container_width=True):
         if not book_name.strip():
             st.error("请输入书名")
         else:
-            ok, msg, pts = earn_points(sid, "borrow", f"借阅《{book_name}》")
-            if ok:
-                st.toast(msg)
-                st.rerun()
-            else:
-                st.error(msg)
+            append_to_list("borrow_requests.json", {
+                "id": str(uuid.uuid4())[:8],
+                "student_id": sid,
+                "name": st.session_state.user_name,
+                "book": book_name.strip(),
+                "action": "borrow",
+                "status": "pending",
+                "time": now_str(),
+            })
+            st.toast("借阅记录已提交，等待审核通过后获得积分")
+            st.rerun()
 
-# ── 归还图书 ──
+# ── 归还图书（提交审核） ──
 st.subheader("📕 归还图书")
 with st.form("return_form"):
     ret_book = st.text_input("书名", placeholder="请输入归还的书名", key="ret_book")
-    if st.form_submit_button("记录归还", use_container_width=True):
+    if st.form_submit_button("提交归还记录", use_container_width=True):
         if not ret_book.strip():
             st.error("请输入书名")
         else:
-            ok, msg, pts = earn_points(sid, "return", f"归还《{ret_book}》")
-            if ok:
-                st.toast(msg)
-                st.rerun()
-            else:
-                st.error(msg)
+            append_to_list("borrow_requests.json", {
+                "id": str(uuid.uuid4())[:8],
+                "student_id": sid,
+                "name": st.session_state.user_name,
+                "book": ret_book.strip(),
+                "action": "return",
+                "status": "pending",
+                "time": now_str(),
+            })
+            st.toast("归还记录已提交，等待审核通过后获得积分")
+            st.rerun()
+
+# ── 我的借阅审核状态 ──
+borrow_requests = read_json("borrow_requests.json")
+my_requests = [r for r in borrow_requests if r.get("student_id") == sid]
+if my_requests:
+    my_requests.sort(key=lambda x: x.get("time", ""), reverse=True)
+    pending_count = sum(1 for r in my_requests if r.get("status") == "pending")
+    if pending_count > 0:
+        st.caption(f"📋 你有 {pending_count} 条借还记录待审核")
+
+    with st.expander(f"查看借还记录（近20条）"):
+        for r in my_requests[:20]:
+            action_cn = "📗 借阅" if r.get("action") == "borrow" else "📕 归还"
+            status_badge = {"pending": "🔵 待审核", "approved": "✅ 已通过", "rejected": "❌ 未通过"}.get(r.get("status"), "")
+            st.markdown(f"{action_cn} 《{r.get('book', '')}》 {status_badge}  \n<sub>{r.get('time', '')}</sub>", unsafe_allow_html=True)
+
+st.divider()
 
 # ── 推荐好书 ──
 st.subheader("💡 推荐好书")

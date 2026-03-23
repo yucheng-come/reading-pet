@@ -8,6 +8,7 @@ from utils.auth import is_admin, get_user, batch_import_users, reset_password_by
 from utils.data_io import read_json, write_json
 from utils.points_engine import get_balance, earn_points
 from utils.time_utils import now_str, this_month_str, today_str
+from config import POINTS_RULES
 
 st.set_page_config(page_title="管理后台", page_icon="🔧")
 
@@ -25,7 +26,7 @@ if not is_admin(sid):
 st.title("🔧 管理后台")
 
 tab_users, tab_import, tab_borrow, tab_reviews, tab_challenges, tab_stats = st.tabs(
-    ["👤 用户管理", "📥 账号导入", "📚 借阅导入", "📝 书评审核", "🎯 挑战管理", "📊 数据统计"]
+    ["👤 用户管理", "📥 账号导入", "📚 借阅导入", "📋 审核管理", "🎯 挑战管理", "📊 数据统计"]
 )
 
 # ── 用户管理 ──
@@ -292,7 +293,6 @@ with tab_borrow:
 
             # 积分预估
             if valid_records:
-                from config import POINTS_RULES
                 borrow_pts = POINTS_RULES["borrow"]["points"]
                 return_pts = POINTS_RULES["return"]["points"]
                 est_borrow = sum(1 for r in valid_records if r["action"] == "borrow")
@@ -328,9 +328,29 @@ with tab_borrow:
                             success_count += 1
                         else:
                             fail_count += 1
+
+                    # 自动匹配用户待审核请求
+                    br_requests = read_json("borrow_requests.json")
+                    if isinstance(br_requests, list):
+                        auto_count = 0
+                        for req in br_requests:
+                            if req.get("status") != "pending":
+                                continue
+                            for r in valid_records:
+                                if (req["student_id"] == r["student_id"]
+                                    and req["action"] == r["action"]
+                                    and req["book"] == r["book"]):
+                                    req["status"] = "approved"
+                                    auto_count += 1
+                                    break
+                        if auto_count > 0:
+                            write_json("borrow_requests.json", br_requests)
+
                     result_msg = f"导入完成！成功 {success_count} 条"
                     if fail_count > 0:
                         result_msg += f"，{fail_count} 条因当日上限跳过"
+                    if auto_count > 0:
+                        result_msg += f"，自动审核通过 {auto_count} 条用户申请"
                     st.toast(result_msg)
                     st.rerun()
 
@@ -350,59 +370,146 @@ with tab_borrow:
                     for r in duplicate_records:
                         st.markdown(f"- {r.get('student_id', '')} 《{r.get('book', '')}》 {r.get('action', '')} {r.get('date', '')}")
 
-# ── 书评审核 ──
+# ── 审核管理 ──
 with tab_reviews:
-    st.subheader("待审核书评")
-    reviews = read_json("reviews.json")
-    pending = [r for r in reviews if r.get("type") == "review" and r.get("status") == "pending"]
+    review_sub = st.radio("审核类型", ["📚 借阅审核", "📝 书评审核"], horizontal=True)
 
-    if not pending:
-        st.success("暂无待审核书评")
+    if review_sub == "📚 借阅审核":
+        borrow_requests = read_json("borrow_requests.json")
+        if not isinstance(borrow_requests, list):
+            borrow_requests = []
+        pending_br = [r for r in borrow_requests if r.get("status") == "pending"]
+
+        st.subheader(f"待审核借还记录（{len(pending_br)} 条）")
+
+        if not pending_br:
+            st.success("暂无待审核的借还记录")
+        else:
+            # 批量操作
+            col_batch1, col_batch2 = st.columns(2)
+            with col_batch1:
+                if st.button("✅ 全部通过", key="approve_all_br", use_container_width=True):
+                    approved_count = 0
+                    for r in borrow_requests:
+                        if r.get("status") == "pending":
+                            r["status"] = "approved"
+                            action_label = "借阅" if r["action"] == "borrow" else "归还"
+                            earn_points(r["student_id"], r["action"], f"{action_label}《{r['book']}》")
+                            approved_count += 1
+                    write_json("borrow_requests.json", borrow_requests)
+                    st.toast(f"已批量通过 {approved_count} 条，积分已发放")
+                    st.rerun()
+            with col_batch2:
+                if st.button("❌ 全部拒绝", key="reject_all_br", use_container_width=True):
+                    rejected_count = 0
+                    for r in borrow_requests:
+                        if r.get("status") == "pending":
+                            r["status"] = "rejected"
+                            rejected_count += 1
+                    write_json("borrow_requests.json", borrow_requests)
+                    st.toast(f"已批量拒绝 {rejected_count} 条")
+                    st.rerun()
+
+            st.divider()
+
+            # 逐条审核
+            for r in pending_br:
+                action_cn = "📗 借阅" if r.get("action") == "borrow" else "📕 归还"
+                pts = POINTS_RULES.get(r.get("action"), {}).get("points", 0)
+                with st.container(border=True):
+                    st.markdown(f"**{r.get('name', '')}**（{r.get('student_id', '')}） {action_cn} 《{r.get('book', '')}》")
+                    st.caption(f"提交时间: {r.get('time', '')} | 审核通过将获得 +{pts} 积分")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("✅ 通过", key=f"approve_br_{r['id']}", use_container_width=True):
+                            for req in borrow_requests:
+                                if req.get("id") == r["id"]:
+                                    req["status"] = "approved"
+                                    break
+                            write_json("borrow_requests.json", borrow_requests)
+                            action_label = "借阅" if r["action"] == "borrow" else "归还"
+                            earn_points(r["student_id"], r["action"], f"{action_label}《{r['book']}》")
+                            st.toast(f"已通过，+{pts} 积分")
+                            st.rerun()
+                    with col2:
+                        if st.button("❌ 拒绝", key=f"reject_br_{r['id']}", use_container_width=True):
+                            for req in borrow_requests:
+                                if req.get("id") == r["id"]:
+                                    req["status"] = "rejected"
+                                    break
+                            write_json("borrow_requests.json", borrow_requests)
+                            st.toast("已拒绝")
+                            st.rerun()
+
+        # 历史记录
+        st.divider()
+        br_status_filter = st.selectbox("状态筛选", ["全部", "待审核", "已通过", "已拒绝"], key="br_filter")
+        filtered_br = borrow_requests
+        if br_status_filter == "待审核":
+            filtered_br = [r for r in borrow_requests if r.get("status") == "pending"]
+        elif br_status_filter == "已通过":
+            filtered_br = [r for r in borrow_requests if r.get("status") == "approved"]
+        elif br_status_filter == "已拒绝":
+            filtered_br = [r for r in borrow_requests if r.get("status") == "rejected"]
+
+        st.caption(f"共 {len(filtered_br)} 条")
+        for r in filtered_br[-50:]:
+            action_cn = "📗 借阅" if r.get("action") == "borrow" else "📕 归还"
+            status_map = {"pending": "🔵 待审核", "approved": "✅ 已通过", "rejected": "❌ 已拒绝"}
+            st.markdown(f"- {r.get('name', '')}（{r.get('student_id', '')}） {action_cn} 《{r.get('book', '')}》 {status_map.get(r.get('status'), '')}")
+
     else:
-        st.caption(f"共 {len(pending)} 篇待审核")
-        for r in pending:
-            with st.expander(f"《{r['book']}》— {r.get('author_name', '匿名')} ({r.get('time', '')})"):
-                st.markdown(f"**作者**: {r.get('book_author', '')}")
-                st.markdown(f"**评分**: {'⭐' * r.get('rating', 0)}")
-                st.markdown(f"**字数**: {len(r.get('content', ''))}")
-                st.markdown(r.get("content", ""))
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("✅ 通过", key=f"approve_{r['id']}", use_container_width=True):
-                        for rev in reviews:
-                            if rev.get("id") == r["id"]:
-                                rev["status"] = "approved"
-                                break
-                        write_json("reviews.json", reviews)
-                        # 审核通过后发放书评积分
-                        earn_points(r["student_id"], "review", f"书评《{r['book']}》审核通过")
-                        st.toast("已通过，积分已发放")
-                        st.rerun()
-                with col2:
-                    if st.button("❌ 拒绝", key=f"reject_{r['id']}", use_container_width=True):
-                        for rev in reviews:
-                            if rev.get("id") == r["id"]:
-                                rev["status"] = "rejected"
-                                break
-                        write_json("reviews.json", reviews)
-                        st.toast("已拒绝")
-                        st.rerun()
+        # ── 书评审核 ──
+        st.subheader("待审核书评")
+        reviews = read_json("reviews.json")
+        pending = [r for r in reviews if r.get("type") == "review" and r.get("status") == "pending"]
 
-    st.divider()
-    st.subheader("全部书评")
-    status_filter = st.selectbox("状态筛选", ["全部", "待审核", "已通过", "已拒绝"])
-    all_reviews = [r for r in reviews if r.get("type") == "review"]
-    if status_filter == "待审核":
-        all_reviews = [r for r in all_reviews if r.get("status") == "pending"]
-    elif status_filter == "已通过":
-        all_reviews = [r for r in all_reviews if r.get("status") == "approved"]
-    elif status_filter == "已拒绝":
-        all_reviews = [r for r in all_reviews if r.get("status") == "rejected"]
+        if not pending:
+            st.success("暂无待审核书评")
+        else:
+            st.caption(f"共 {len(pending)} 篇待审核")
+            for r in pending:
+                with st.expander(f"《{r['book']}》— {r.get('author_name', '匿名')} ({r.get('time', '')})"):
+                    st.markdown(f"**作者**: {r.get('book_author', '')}")
+                    st.markdown(f"**评分**: {'⭐' * r.get('rating', 0)}")
+                    st.markdown(f"**字数**: {len(r.get('content', ''))}")
+                    st.markdown(r.get("content", ""))
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("✅ 通过", key=f"approve_{r['id']}", use_container_width=True):
+                            for rev in reviews:
+                                if rev.get("id") == r["id"]:
+                                    rev["status"] = "approved"
+                                    break
+                            write_json("reviews.json", reviews)
+                            earn_points(r["student_id"], "review", f"书评《{r['book']}》审核通过")
+                            st.toast("已通过，积分已发放")
+                            st.rerun()
+                    with col2:
+                        if st.button("❌ 拒绝", key=f"reject_{r['id']}", use_container_width=True):
+                            for rev in reviews:
+                                if rev.get("id") == r["id"]:
+                                    rev["status"] = "rejected"
+                                    break
+                            write_json("reviews.json", reviews)
+                            st.toast("已拒绝")
+                            st.rerun()
 
-    st.caption(f"共 {len(all_reviews)} 篇")
-    for r in all_reviews:
-        status_map = {"pending": "🔵 待审核", "approved": "✅ 已通过", "rejected": "❌ 已拒绝"}
-        st.markdown(f"- 《{r['book']}》— {r.get('author_name', '')} | {status_map.get(r.get('status'), '')} | 👍{r.get('votes', 0)}")
+        st.divider()
+        st.subheader("全部书评")
+        status_filter = st.selectbox("状态筛选", ["全部", "待审核", "已通过", "已拒绝"])
+        all_reviews = [r for r in reviews if r.get("type") == "review"]
+        if status_filter == "待审核":
+            all_reviews = [r for r in all_reviews if r.get("status") == "pending"]
+        elif status_filter == "已通过":
+            all_reviews = [r for r in all_reviews if r.get("status") == "approved"]
+        elif status_filter == "已拒绝":
+            all_reviews = [r for r in all_reviews if r.get("status") == "rejected"]
+
+        st.caption(f"共 {len(all_reviews)} 篇")
+        for r in all_reviews:
+            status_map = {"pending": "🔵 待审核", "approved": "✅ 已通过", "rejected": "❌ 已拒绝"}
+            st.markdown(f"- 《{r['book']}》— {r.get('author_name', '')} | {status_map.get(r.get('status'), '')} | 👍{r.get('votes', 0)}")
 
 # ── 挑战管理 ──
 with tab_challenges:
