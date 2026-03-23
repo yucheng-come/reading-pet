@@ -134,24 +134,95 @@ if "logged_in" not in st.session_state:
     st.session_state.is_admin = False
 
 
-# ── 已登录 ──
+# ── 已登录：功能仪表盘 ──
 if st.session_state.logged_in:
     setup_sidebar()
 
+    from utils.pet_engine import get_pet, get_level, feed
+    from utils.points_engine import get_balance, earn_points
+    from assets.pet_art import get_pet_emoji, STATUS_EMOJIS
+    from utils.data_io import read_json
+    from utils.time_utils import today_str, streak_days
+    from config import PET_TYPE_NAMES, FEED_COST, FEED_DAILY_MAX
+
+    sid = st.session_state.student_id
+    pet = get_pet(sid)
+    level = get_level(pet["growth"])
+    balance = get_balance(sid)
+    emoji = get_pet_emoji(pet["type"], level["emoji_key"])
+    status_emoji = STATUS_EMOJIS.get(pet["status"], "")
+
+    # 欢迎横幅
     st.markdown(f"""
     <div class="welcome-banner">
         <h2>欢迎回来，{st.session_state.user_name}！</h2>
-        <p>从左侧菜单选择功能，开始你的阅读之旅</p>
+        <p>今天也要好好阅读哦</p>
     </div>
     """, unsafe_allow_html=True)
 
+    # ── 宠物 + 积分概览 ──
+    col_pet, col_data = st.columns([1, 1])
+    with col_pet:
+        st.markdown(f"""
+        <div style="text-align:center; background:linear-gradient(135deg,#e0c3fc 0%,#8ec5fc 100%);
+            border-radius:16px; padding:1rem;">
+            <div style="font-size:4rem; line-height:1.2;">{emoji}</div>
+            <div style="font-weight:600; margin-top:0.3rem;">Lv.{level['level']} {level['name']} {status_emoji}</div>
+            <div style="font-size:0.85rem; color:#555;">成长值 {pet['growth']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_data:
+        st.metric("当前积分", balance)
+        feeds_left = FEED_DAILY_MAX - pet.get("feeds_today", 0) if pet.get("last_feed_day") == today_str() else FEED_DAILY_MAX
+        st.metric("今日喂食", f"{feeds_left}/{FEED_DAILY_MAX}")
+
+    # ── 快捷操作 ──
+    st.divider()
+    col_a, col_b = st.columns(2)
+
+    # 签到
+    with col_a:
+        logs = read_json("points_log.json")
+        checkin_dates = [l["time"][:10] for l in logs if l["student_id"] == sid and l["action"] == "checkin"]
+        streak = streak_days(checkin_dates)
+        already = today_str() in checkin_dates
+        if already:
+            st.success(f"今日已签到 ✅  连续 {streak} 天 {'🔥' * min(streak, 5)}")
+        else:
+            if st.button(f"✅ 每日签到 (+5积分)  连续 {streak} 天", use_container_width=True):
+                ok, msg, pts = earn_points(sid, "checkin", f"阅读签到 {today_str()}")
+                if ok:
+                    new_dates = checkin_dates + [today_str()]
+                    new_streak = streak_days(new_dates)
+                    if new_streak > 0 and new_streak % 7 == 0:
+                        earn_points(sid, "streak_7", f"连续{new_streak}天打卡奖励")
+                        st.balloons()
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    # 喂食
+    with col_b:
+        if pet["status"] == "hungry":
+            st.warning("😿 宠物饿了！")
+        if st.button(f"🍖 喂食宠物 (-{FEED_COST}积分)", use_container_width=True):
+            ok, msg = feed(sid)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+
+    st.divider()
+
+    # ── 功能入口（保留卡片） ──
     features = [
-        ("🐾", "我的宠物", "喂食、互动、装扮你的阅读小伙伴"),
-        ("📖", "阅读打卡", "记录每日阅读，赚取积分"),
-        ("🏆", "排行榜", "看看谁是最佳读者"),
+        ("🐾", "我的宠物", "喂食、互动、装扮"),
+        ("📖", "阅读打卡", "借书、还书、推荐"),
+        ("🏆", "排行榜", "个人与学院排名"),
         ("📝", "书评广场", "分享读书感悟"),
-        ("🛍️", "装扮商店", "用积分装扮你的宠物"),
-        ("🎯", "阅读挑战", "完成挑战赢取大量积分"),
+        ("🛍️", "装扮商店", "用积分装扮宠物"),
+        ("🎯", "阅读挑战", "完成挑战赢积分"),
     ]
     cards_html = '<div class="feature-grid">'
     for icon, title, desc in features:
