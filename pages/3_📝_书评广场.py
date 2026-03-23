@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from utils.sidebar import setup_sidebar
 
 from utils.data_io import read_json, write_json, append_to_list
-from utils.points_engine import earn_points, get_balance
+from utils.points_engine import get_balance
 from utils.time_utils import now_str, this_month_str
 from config import REVIEW_MIN_LENGTH
 
@@ -55,12 +55,7 @@ with tab_write:
                     "time": now_str(),
                 }
                 append_to_list("reviews.json", review)
-                ok, msg, pts = earn_points(sid, "review", f"书评《{book}》")
-                if ok:
-                    st.success(f"书评已提交！{msg}")
-                else:
-                    st.success("书评已提交！")
-                    st.warning(msg)
+                st.toast("书评已提交，等待审核通过后将获得积分！")
                 st.rerun()
 
 # ── 浏览书评 ──
@@ -88,7 +83,7 @@ with tab_browse:
                                 rev.setdefault("voted_by", []).append(sid)
                                 break
                         write_json("reviews.json", reviews)
-                        st.success("点赞成功！")
+                        st.toast("点赞成功！")
                         st.rerun()
                 elif r.get("student_id") == sid:
                     st.caption("这是你的书评")

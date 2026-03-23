@@ -49,14 +49,14 @@ else:
     if st.button("立即签到", use_container_width=True):
         ok, msg, pts = earn_points(sid, "checkin", f"阅读签到 {today_str()}")
         if ok:
-            st.success(msg)
+            st.toast(msg)
             # 检查连续7天奖励
             new_checkin_dates = checkin_dates + [today_str()]
             new_streak = streak_days(new_checkin_dates)
             if new_streak > 0 and new_streak % 7 == 0:
                 earn_points(sid, "streak_7", f"连续{new_streak}天打卡奖励")
                 st.balloons()
-                st.success("🎉 连续7天打卡奖励 +10积分！")
+                st.toast("连续7天打卡奖励 +10积分！")
             st.rerun()
         else:
             st.error(msg)
@@ -73,7 +73,7 @@ with st.form("borrow_form"):
         else:
             ok, msg, pts = earn_points(sid, "borrow", f"借阅《{book_name}》")
             if ok:
-                st.success(msg)
+                st.toast(msg)
                 st.rerun()
             else:
                 st.error(msg)
@@ -88,7 +88,7 @@ with st.form("return_form"):
         else:
             ok, msg, pts = earn_points(sid, "return", f"归还《{ret_book}》")
             if ok:
-                st.success(msg)
+                st.toast(msg)
                 st.rerun()
             else:
                 st.error(msg)
@@ -111,7 +111,7 @@ with st.form("recommend_form"):
                     "content": rec_reason,
                     "time": now_str(),
                 })
-                st.success(msg)
+                st.toast(msg)
                 st.rerun()
             else:
                 st.error(msg)

@@ -6,7 +6,7 @@ from utils.sidebar import setup_sidebar
 
 from utils.auth import is_admin, get_user, batch_import_users, reset_password_by_idcard, id_card_to_password, _hash_password
 from utils.data_io import read_json, write_json
-from utils.points_engine import get_balance
+from utils.points_engine import get_balance, earn_points
 from utils.time_utils import now_str, this_month_str
 
 st.set_page_config(page_title="管理后台", page_icon="🔧")
@@ -64,7 +64,7 @@ with tab_users:
                     "is_admin": False,
                 }
                 write_json("users.json", users)
-                st.success(f"账号 {a_sid} 添加成功！密码为身份证后八位")
+                st.toast(f"账号 {a_sid} 添加成功！密码为身份证后八位")
                 st.rerun()
 
     st.divider()
@@ -182,7 +182,7 @@ with tab_import:
             if new_records:
                 if st.button(f"确认导入 {len(new_records)} 个新账号", use_container_width=True, type="primary"):
                     success, skipped, errors = batch_import_users(new_records)
-                    st.success(f"导入完成！成功 {success} 个，跳过 {skipped} 个")
+                    st.toast(f"导入完成！成功 {success} 个，跳过 {skipped} 个")
                     if errors:
                         for e in errors:
                             st.warning(e)
@@ -214,7 +214,9 @@ with tab_reviews:
                                 rev["status"] = "approved"
                                 break
                         write_json("reviews.json", reviews)
-                        st.success("已通过")
+                        # 审核通过后发放书评积分
+                        earn_points(r["student_id"], "review", f"书评《{r['book']}》审核通过")
+                        st.toast("已通过，积分已发放")
                         st.rerun()
                 with col2:
                     if st.button("❌ 拒绝", key=f"reject_{r['id']}", use_container_width=True):
@@ -223,7 +225,7 @@ with tab_reviews:
                                 rev["status"] = "rejected"
                                 break
                         write_json("reviews.json", reviews)
-                        st.warning("已拒绝")
+                        st.toast("已拒绝")
                         st.rerun()
 
     st.divider()
@@ -273,7 +275,7 @@ with tab_challenges:
                 }
                 challenges.append(new_ch)
                 write_json("challenges.json", challenges)
-                st.success("挑战创建成功！")
+                st.toast("挑战创建成功！")
                 st.rerun()
 
     st.divider()

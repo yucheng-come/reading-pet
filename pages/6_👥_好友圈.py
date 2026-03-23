@@ -6,7 +6,7 @@ from utils.sidebar import setup_sidebar
 
 from utils.data_io import read_json, write_json
 from utils.auth import get_user
-from utils.points_engine import get_balance, spend_points, earn_points
+from utils.points_engine import get_balance, spend_points
 from utils.pet_engine import get_pet, get_level
 from assets.pet_art import get_pet_emoji
 from utils.time_utils import now_str, today_str
@@ -61,7 +61,7 @@ with tab_add:
                         other_friends.append(sid)
                         friends_data[friend_id] = other_friends
                     write_json("friends.json", friends_data)
-                    st.success(f"已添加 {friend_user['name']} 为好友！")
+                    st.toast(f"已添加 {friend_user['name']} 为好友！")
                     st.rerun()
 
 # ── 好友列表 ──
@@ -137,7 +137,7 @@ with tab_gift:
                                     "note": f"好友互赠奖励",
                                     "time": now_str(),
                                 })
-                            st.success(f"送礼成功！你和 {friend_user['name']} 各得 {GIFT_RECEIVE} 积分")
+                            st.toast(f"送礼成功！你和 {friend_user['name']} 各得 {GIFT_RECEIVE} 积分")
                             st.rerun()
                         else:
                             st.error(msg)

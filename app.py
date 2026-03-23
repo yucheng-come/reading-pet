@@ -197,6 +197,7 @@ if st.session_state.logged_in:
                     if new_streak > 0 and new_streak % 7 == 0:
                         earn_points(sid, "streak_7", f"连续{new_streak}天打卡奖励")
                         st.balloons()
+                    st.toast("签到成功！")
                     st.rerun()
                 else:
                     st.error(msg)
@@ -208,32 +209,36 @@ if st.session_state.logged_in:
         if st.button(f"🍖 喂食宠物 (-{FEED_COST}积分)", use_container_width=True):
             ok, msg = feed(sid)
             if ok:
-                st.success(msg)
+                st.toast(msg)
                 st.rerun()
             else:
                 st.error(msg)
 
     st.divider()
 
-    # ── 功能入口（保留卡片） ──
+    # ── 功能入口（可点击跳转） ──
     features = [
-        ("🐾", "我的宠物", "喂食、互动、装扮"),
-        ("📖", "阅读打卡", "借书、还书、推荐"),
-        ("🏆", "排行榜", "个人与学院排名"),
-        ("📝", "书评广场", "分享读书感悟"),
-        ("🛍️", "装扮商店", "用积分装扮宠物"),
-        ("🎯", "阅读挑战", "完成挑战赢积分"),
+        ("🐾", "我的宠物", "喂食、互动、装扮", "pages/1_🐾_我的宠物.py"),
+        ("📖", "阅读打卡", "借书、还书、推荐", "pages/2_📖_阅读打卡.py"),
+        ("🏆", "排行榜", "个人与学院排名", "pages/5_🏆_排行榜.py"),
+        ("📝", "书评广场", "分享读书感悟", "pages/3_📝_书评广场.py"),
+        ("🛍️", "装扮商店", "用积分装扮宠物", "pages/4_🛍️_装扮商店.py"),
+        ("🎯", "阅读挑战", "完成挑战赢积分", "pages/7_🎯_阅读挑战.py"),
     ]
-    cards_html = '<div class="feature-grid">'
-    for icon, title, desc in features:
-        cards_html += f"""
-        <div class="feature-card">
-            <span class="icon">{icon}</span>
-            <div class="title">{title}</div>
-            <div class="desc">{desc}</div>
-        </div>"""
-    cards_html += '</div>'
-    st.markdown(cards_html, unsafe_allow_html=True)
+    row1 = st.columns(3)
+    row2 = st.columns(3)
+    all_cols = row1 + row2
+    for i, (icon, title, desc, page) in enumerate(features):
+        with all_cols[i]:
+            st.markdown(f"""
+            <div class="feature-card">
+                <span class="icon">{icon}</span>
+                <div class="title">{title}</div>
+                <div class="desc">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"进入{title}", key=f"nav_{i}", use_container_width=True):
+                st.switch_page(page)
 
 else:
     # ── 未登录：居中登录卡片 ──

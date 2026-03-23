@@ -65,7 +65,6 @@ for l in user_logs:
         source_stats[label] = source_stats.get(label, 0) + l["amount"]
 
 if source_stats:
-    import json
     chart_data = {k: v for k, v in sorted(source_stats.items(), key=lambda x: x[1], reverse=True)}
     for label, pts in chart_data.items():
         pct = pts / total_earned * 100 if total_earned > 0 else 0
@@ -88,13 +87,11 @@ with st.form("change_pwd"):
         else:
             ok, msg = change_password(sid, old_pwd, new_pwd)
             if ok:
-                st.success(msg + " 即将跳转到登录页面...")
                 st.session_state.logged_in = False
                 st.session_state.student_id = ""
                 st.session_state.user_name = ""
                 st.session_state.is_admin = False
-                import time
-                time.sleep(1.5)
+                st.toast(msg + " 即将跳转到登录页面...")
                 st.switch_page("app.py")
             else:
                 st.error(msg)

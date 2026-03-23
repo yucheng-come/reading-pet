@@ -20,11 +20,11 @@ def _today_earned(student_id: str, action: str) -> int:
     )
 
 
-def earn_points(student_id: str, action: str, note: str = "") -> tuple[bool, str, int]:
+def earn_points(student_id: str, action: str, note: str = "", custom_points: int = 0) -> tuple[bool, str, int]:
     rule = POINTS_RULES.get(action)
     if not rule:
         return False, "未知行为类型", 0
-    pts = rule["points"]
+    pts = custom_points if custom_points > 0 else rule["points"]
     daily_max = rule["daily_max"]
     if daily_max is not None:
         already = _today_earned(student_id, action)

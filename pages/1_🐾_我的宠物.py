@@ -86,7 +86,7 @@ if level["level"] >= 2 and pet["type"] is None:
             if st.button(f"{emoji_preview} {PET_TYPE_NAMES[t]}", key=f"choose_{t}", use_container_width=True):
                 ok, msg = choose_type(sid, t)
                 if ok:
-                    st.success(msg)
+                    st.toast(msg)
                     st.rerun()
                 else:
                     st.error(msg)
@@ -100,7 +100,7 @@ with col_a:
     if st.button(f"🍖 喂食 (-{FEED_COST}积分)", use_container_width=True):
         ok, msg = feed(sid)
         if ok:
-            st.success(msg)
+            st.toast(msg)
             st.rerun()
         else:
             st.error(msg)
@@ -109,7 +109,7 @@ with col_b:
         if st.button(f"📢 召回 (-{RECALL_COST}积分)", use_container_width=True):
             ok, msg = recall(sid)
             if ok:
-                st.success(msg)
+                st.toast(msg)
                 st.rerun()
             else:
                 st.error(msg)

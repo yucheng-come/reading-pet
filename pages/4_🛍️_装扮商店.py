@@ -80,7 +80,7 @@ for cat, items in categories.items():
                         owned.append(item["id"])
                         shop_data[sid] = owned
                         update_dict("shop.json", sid, owned)
-                        st.success(f"购买成功！{msg}")
+                        st.toast(f"购买成功！{msg}")
                         st.rerun()
                     else:
                         st.error(msg)

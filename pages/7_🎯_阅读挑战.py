@@ -6,7 +6,7 @@ from utils.sidebar import setup_sidebar
 
 from utils.data_io import read_json, write_json
 from utils.points_engine import earn_points, get_balance
-from utils.time_utils import now_str, this_month_str, today_str
+from utils.time_utils import now_str, this_month_str
 
 st.set_page_config(page_title="阅读挑战", page_icon="🎯")
 
@@ -120,17 +120,17 @@ with tab_active:
                         participants[sid] = {"joined_at": now_str(), "completed": False}
                         ch["participants"] = participants
                         write_json("challenges.json", challenges)
-                        st.success("已参加挑战！")
+                        st.toast("已参加挑战！")
                         st.rerun()
                 elif progress >= ch["target"]:
                     if st.button("领取奖励", key=f"claim_{ch['id']}", use_container_width=True):
-                        ok, msg, pts = earn_points(sid, "challenge", f"完成挑战: {ch['title']}")
+                        ok, msg, pts = earn_points(sid, "challenge", f"完成挑战: {ch['title']}", custom_points=ch["reward"])
                         if ok:
                             participants[sid]["completed"] = True
                             participants[sid]["completed_at"] = now_str()
                             ch["participants"] = participants
                             write_json("challenges.json", challenges)
-                            st.success(f"挑战完成！{msg}")
+                            st.toast(f"挑战完成！{msg}")
                             st.balloons()
                             st.rerun()
                         else:
