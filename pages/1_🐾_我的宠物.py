@@ -29,7 +29,6 @@ st.title("🐾 我的宠物")
 emoji = get_pet_emoji(pet["type"], level["emoji_key"])
 status_emoji = STATUS_EMOJIS.get(pet["status"], "")
 
-# 装备展示
 equipped = pet.get("equipped", {})
 deco_parts = []
 for cat in ["background", "scene", "hat", "scarf"]:
@@ -40,32 +39,40 @@ for cat in ["background", "scene", "hat", "scarf"]:
             deco_parts.append(item["emoji"])
 deco_str = " ".join(deco_parts)
 
-col_pet, col_info = st.columns([1, 2])
-with col_pet:
-    st.markdown(f"""
-    <div style="text-align:center; font-size:5rem; padding:1rem;">
-    {deco_str}<br>{emoji}
+# 宠物卡片：上方展示，下方信息
+st.markdown(f"""
+<div style="text-align:center; background:linear-gradient(135deg,#e0c3fc 0%,#8ec5fc 100%);
+    border-radius:20px; padding:1.5rem 1rem; margin-bottom:1rem;">
+    <div style="font-size:1.2rem; margin-bottom:0.3rem;">{deco_str}</div>
+    <div style="font-size:5rem; line-height:1.2;">{emoji}</div>
+    <div style="margin-top:0.5rem; font-size:1.1rem; font-weight:600; color:#333;">
+        Lv.{level['level']} {level['name']} {status_emoji}
     </div>
-    """, unsafe_allow_html=True)
-    if pet["status"] == "hungry":
-        st.warning("😿 宠物饿了！快来喂食吧！")
-    elif pet["status"] == "runaway":
-        st.error("💨 宠物离家出走了！")
+</div>
+""", unsafe_allow_html=True)
 
-with col_info:
-    st.markdown(f"**状态**: {pet['status']} {status_emoji}")
-    type_name = PET_TYPE_NAMES.get(pet["type"], "未选择") if pet["type"] else "未选择（Lv.2可选）"
-    st.markdown(f"**类型**: {type_name}")
-    st.markdown(f"**等级**: Lv.{level['level']} {level['name']}")
-    st.markdown(f"**成长值**: {pet['growth']}")
-    if nxt:
-        progress = (pet["growth"] - level["growth_needed"]) / (nxt["growth_needed"] - level["growth_needed"])
-        st.progress(min(1.0, progress), text=f"下一级 Lv.{nxt['level']} {nxt['name']} 需要 {nxt['growth_needed']} 成长值")
-    else:
-        st.success("已达最高等级！")
-    st.markdown(f"**当前积分**: {balance}")
-    feeds_left = FEED_DAILY_MAX - pet.get("feeds_today", 0) if pet.get("last_feed_day") == __import__("utils.time_utils", fromlist=["today_str"]).today_str() else FEED_DAILY_MAX
-    st.caption(f"今日剩余喂食次数: {feeds_left}/{FEED_DAILY_MAX}")
+if pet["status"] == "hungry":
+    st.warning("😿 宠物饿了！快来喂食吧！")
+elif pet["status"] == "runaway":
+    st.error("💨 宠物离家出走了！")
+
+# 信息区
+from utils.time_utils import today_str
+type_name = PET_TYPE_NAMES.get(pet["type"], "未选择") if pet["type"] else "未选择（Lv.2可选）"
+feeds_left = FEED_DAILY_MAX - pet.get("feeds_today", 0) if pet.get("last_feed_day") == today_str() else FEED_DAILY_MAX
+
+col1, col2, col3 = st.columns(3)
+col1.metric("积分", balance)
+col2.metric("成长值", pet["growth"])
+col3.metric("今日喂食", f"{feeds_left}/{FEED_DAILY_MAX}")
+
+if nxt:
+    progress = (pet["growth"] - level["growth_needed"]) / (nxt["growth_needed"] - level["growth_needed"])
+    st.progress(min(1.0, progress), text=f"下一级 Lv.{nxt['level']} {nxt['name']} 需要 {nxt['growth_needed']}")
+else:
+    st.success("已达最高等级！")
+
+st.markdown(f"**类型**: {type_name}")
 
 st.divider()
 
@@ -85,33 +92,21 @@ if level["level"] >= 2 and pet["type"] is None:
                     st.error(msg)
     st.divider()
 
-# ── 操作区 ──
-col_feed, col_interact, col_recall = st.columns(3)
+# ── 操作区：竖排更适合手机 ──
+st.subheader("操作")
 
-with col_feed:
-    st.subheader(f"🍖 喂食 (-{FEED_COST}积分)")
-    if st.button("喂食宠物", use_container_width=True):
+col_a, col_b = st.columns(2)
+with col_a:
+    if st.button(f"🍖 喂食 (-{FEED_COST}积分)", use_container_width=True):
         ok, msg = feed(sid)
         if ok:
             st.success(msg)
             st.rerun()
         else:
             st.error(msg)
-
-with col_interact:
-    st.subheader(f"🎮 互动 (-{INTERACT_COST}积分)")
-    for action in INTERACT_TYPES:
-        if st.button(f"{action}", key=f"interact_{action}", use_container_width=True):
-            ok, msg = interact(sid, action)
-            if ok:
-                st.success(msg)
-            else:
-                st.error(msg)
-
-with col_recall:
-    st.subheader(f"📢 召回 (-{RECALL_COST}积分)")
+with col_b:
     if pet["status"] == "runaway":
-        if st.button("召回宠物", use_container_width=True):
+        if st.button(f"📢 召回 (-{RECALL_COST}积分)", use_container_width=True):
             ok, msg = recall(sid)
             if ok:
                 st.success(msg)
@@ -119,4 +114,14 @@ with col_recall:
             else:
                 st.error(msg)
     else:
-        st.caption("宠物在身边，无需召回")
+        st.button("📢 召回（无需）", use_container_width=True, disabled=True)
+
+col_c, col_d = st.columns(2)
+for idx, action in enumerate(INTERACT_TYPES):
+    with [col_c, col_d][idx]:
+        if st.button(f"🎮 {action} (-{INTERACT_COST}积分)", key=f"interact_{action}", use_container_width=True):
+            ok, msg = interact(sid, action)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)

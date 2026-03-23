@@ -28,19 +28,17 @@ level = get_level(pet["growth"])
 st.title("👤 个人中心")
 
 # ── 个人信息 ──
-st.subheader("📋 个人信息")
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown(f"**学号**: {user['student_id']}")
-    st.markdown(f"**姓名**: {user['name']}")
-with col2:
-    st.markdown(f"**学院**: {user['college']}")
-    st.markdown(f"**专业**: {user['major']}")
+st.markdown(f"""
+<div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+    border-radius:16px; padding:1.2rem; color:white; margin-bottom:1rem;">
+    <div style="font-size:1.3rem; font-weight:700; margin-bottom:0.5rem;">{user['name']}</div>
+    <div style="opacity:0.9; font-size:0.9rem;">
+        {user['student_id']} · {user['college']} · {user['major']}
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.divider()
-
-# ── 数据概览 ──
-st.subheader("📊 数据概览")
+# ── 数据概览（2x2）──
 logs_all = read_json("points_log.json")
 user_logs = [l for l in logs_all if l["student_id"] == sid]
 month = this_month_str()
@@ -48,11 +46,12 @@ month_earned = sum(l["amount"] for l in user_logs if l["amount"] > 0 and l["time
 total_earned = sum(l["amount"] for l in user_logs if l["amount"] > 0)
 total_spent = abs(sum(l["amount"] for l in user_logs if l["amount"] < 0))
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("当前积分", balance)
-col2.metric("本月获取", month_earned)
-col3.metric("累计获取", total_earned)
-col4.metric("累计消耗", total_spent)
+r1 = st.columns(2)
+r2 = st.columns(2)
+r1[0].metric("当前积分", balance)
+r1[1].metric("本月获取", month_earned)
+r2[0].metric("累计获取", total_earned)
+r2[1].metric("累计消耗", total_spent)
 
 st.divider()
 

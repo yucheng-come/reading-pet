@@ -12,103 +12,122 @@ st.set_page_config(
     page_title="悦读养成记",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ── 自定义样式 ──
+# ── 自定义样式（含移动端适配） ──
 st.markdown("""
 <style>
-/* 登录页整体背景 */
+/* 登录页背景 */
 [data-testid="stMain"] {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
 }
-/* 登录卡片 */
-.login-card {
-    background: white;
-    border-radius: 20px;
-    padding: 2.5rem 2rem;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-    max-width: 460px;
-    margin: 0 auto;
-}
+/* 登录头部 */
 .login-header {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
+    padding-top: 1rem;
+}
+.login-header .pet-icon {
+    font-size: 3.5rem;
+    display: block;
+    margin-bottom: 0.3rem;
 }
 .login-header h1 {
-    font-size: 2.2rem;
+    font-size: 2rem;
     margin: 0;
     color: #333;
 }
-.login-header .pet-icon {
-    font-size: 4rem;
-    display: block;
-    margin-bottom: 0.5rem;
-}
 .login-header .subtitle {
     color: #888;
-    font-size: 1rem;
+    font-size: 0.95rem;
     margin-top: 0.3rem;
 }
 /* 功能卡片 */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+@media (max-width: 768px) {
+    .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem;
+    }
+}
+@media (max-width: 400px) {
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+}
 .feature-card {
     background: white;
     border-radius: 16px;
-    padding: 1.5rem;
+    padding: 1.2rem 0.8rem;
     text-align: center;
     box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     transition: transform 0.2s, box-shadow 0.2s;
-    height: 100%;
 }
 .feature-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow: 0 8px 25px rgba(0,0,0,0.12);
 }
 .feature-card .icon {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     display: block;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
 }
 .feature-card .title {
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: #333;
 }
 .feature-card .desc {
     color: #888;
-    font-size: 0.85rem;
-    margin-top: 0.3rem;
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
 }
 /* 欢迎横幅 */
 .welcome-banner {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 16px;
-    padding: 2rem;
+    padding: 1.5rem 1rem;
     color: white;
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
 }
 .welcome-banner h2 {
     margin: 0;
-    font-size: 1.8rem;
+    font-size: 1.5rem;
 }
 .welcome-banner p {
-    margin: 0.5rem 0 0 0;
+    margin: 0.4rem 0 0 0;
     opacity: 0.9;
+    font-size: 0.9rem;
+}
+@media (max-width: 768px) {
+    .login-header h1 { font-size: 1.6rem; }
+    .login-header .pet-icon { font-size: 3rem; }
+    .welcome-banner { padding: 1rem 0.8rem; }
+    .welcome-banner h2 { font-size: 1.3rem; }
+}
+/* 输入框 iOS 防缩放 */
+input, textarea, select { font-size: 16px !important; }
+/* 按钮 */
+.stButton > button {
+    min-height: 44px;
+    border-radius: 10px !important;
+}
+/* Form 圆角 */
+[data-testid="stForm"] {
+    border-radius: 12px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ── session 初始化 ──
 if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.student_id = ""
-    st.session_state.user_name = ""
-    st.session_state.is_admin = False
-
-
-def do_logout():
     st.session_state.logged_in = False
     st.session_state.student_id = ""
     st.session_state.user_name = ""
@@ -134,21 +153,20 @@ if st.session_state.logged_in:
         ("🛍️", "装扮商店", "用积分装扮你的宠物"),
         ("🎯", "阅读挑战", "完成挑战赢取大量积分"),
     ]
-    cols = st.columns(3)
-    for i, (icon, title, desc) in enumerate(features):
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div class="feature-card">
-                <span class="icon">{icon}</span>
-                <div class="title">{title}</div>
-                <div class="desc">{desc}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.markdown("")  # spacing
+    cards_html = '<div class="feature-grid">'
+    for icon, title, desc in features:
+        cards_html += f"""
+        <div class="feature-card">
+            <span class="icon">{icon}</span>
+            <div class="title">{title}</div>
+            <div class="desc">{desc}</div>
+        </div>"""
+    cards_html += '</div>'
+    st.markdown(cards_html, unsafe_allow_html=True)
 
 else:
     # ── 未登录：居中登录卡片 ──
-    col_l, col_c, col_r = st.columns([1, 1.5, 1])
+    col_l, col_c, col_r = st.columns([0.5, 2, 0.5])
     with col_c:
         st.markdown("""
         <div class="login-header">

@@ -21,16 +21,16 @@ sid = st.session_state.student_id
 balance = get_balance(sid)
 
 st.title("📖 阅读打卡")
-st.caption(f"当前积分: {balance}")
 
-# ── 今日额度概览 ──
-st.subheader("📊 今日积分额度")
+# ── 今日额度概览（2x2 网格适配手机）──
 actions = ["checkin", "borrow", "return", "recommend"]
-cols = st.columns(len(actions))
+row1 = st.columns(2)
+row2 = st.columns(2)
+all_cols = [row1[0], row1[1], row2[0], row2[1]]
 for i, action in enumerate(actions):
     rule = POINTS_RULES[action]
     remaining = today_remaining(sid, action)
-    with cols[i]:
+    with all_cols[i]:
         st.metric(rule["label"], f"+{rule['points']}分/次", f"剩余 {remaining}分")
 
 st.divider()

@@ -34,13 +34,17 @@ with tab_personal:
 
         for i, r in enumerate(ranking):
             medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"#{i+1}"
-            is_me = " ⬅️ 你" if r["student_id"] == sid else ""
-            highlight = "background-color: #fff3cd; padding: 4px; border-radius: 4px;" if r["student_id"] == sid else ""
-            st.markdown(
-                f'<div style="{highlight}">{medal} <b>{r["name"]}</b> ({r["college"]}) — '
-                f'总积分: {r["total_points"]} | 本月: {r["month_points"]}{is_me}</div>',
-                unsafe_allow_html=True
-            )
+            is_me = r["student_id"] == sid
+            bg = "linear-gradient(135deg,#fff3cd,#ffe082)" if is_me else "#f8f9fa"
+            border = "2px solid #ffc107" if is_me else "1px solid #e0e0e0"
+            me_tag = " ⬅️" if is_me else ""
+            st.markdown(f"""
+            <div style="background:{bg}; border:{border}; border-radius:12px;
+                padding:0.6rem 0.8rem; margin-bottom:0.4rem; font-size:0.95rem;">
+                <b>{medal}</b> {r["name"]} <span style="color:#888;">({r["college"]})</span>{me_tag}<br>
+                <span style="font-size:0.85rem; color:#555;">总积分 {r["total_points"]} · 本月 {r["month_points"]}</span>
+            </div>
+            """, unsafe_allow_html=True)
 
 with tab_college:
     st.subheader("学院积分排行榜")
@@ -50,7 +54,10 @@ with tab_college:
     else:
         for i, r in enumerate(ranking):
             medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"#{i+1}"
-            st.markdown(
-                f"{medal} **{r['college']}** — 总积分: {r['total_points']} | "
-                f"成员: {r['members']}人 | 人均: {r['avg_points']}分"
-            )
+            st.markdown(f"""
+            <div style="background:#f8f9fa; border:1px solid #e0e0e0; border-radius:12px;
+                padding:0.6rem 0.8rem; margin-bottom:0.4rem; font-size:0.95rem;">
+                <b>{medal} {r['college']}</b><br>
+                <span style="font-size:0.85rem; color:#555;">总积分 {r['total_points']} · {r['members']}人 · 人均 {r['avg_points']}</span>
+            </div>
+            """, unsafe_allow_html=True)
