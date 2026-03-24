@@ -1,0 +1,42 @@
+[
+  {
+    "id": "c1",
+    "title": "2026-03 月读3本书",
+    "description": "本月内借阅并归还3本不同的书",
+    "target": 3,
+    "type": "borrow",
+    "reward": 50,
+    "month": "2026-03",
+    "participants": {}
+  },
+  {
+    "id": "c2",
+    "title": "2026-03 写2篇书评",
+    "description": "本月内撰写2篇书评",
+    "target": 2,
+    "type": "review",
+    "reward": 50,
+    "month": "2026-03",
+    "participants": {}
+  },
+  {
+    "id": "c3",
+    "title": "2026-03 连续打卡15天",
+    "description": "本月内连续打卡15天",
+    "target": 15,
+    "type": "checkin_streak",
+    "reward": 50,
+    "month": "2026-03",
+    "participants": {}
+  },
+  {
+    "id": "c4",
+    "title": "2026-03 推荐5本好书",
+    "description": "本月内推荐5本好书给其他同学",
+    "target": 5,
+    "type": "recommend",
+    "reward": 50,
+    "month": "2026-03",
+    "participants": {}
+  }
+]
