@@ -15,5 +15,21 @@
     "id_card_last8": "02026918",
     "password": "260ed88024fe09b0db3b6146b5de50bdd3fdd4110219c425909b3edb5ae02132",
     "is_admin": false
+  },
+  "admin002": {
+    "student_id": "admin002",
+    "name": "管理员B",
+    "college": "图书馆",
+    "major": "系统管理",
+    "password": "1ce2fd0b7776381cecc793b4eb68ee90ae7c9aa9f64120f5ea3fdd272eb56e70",
+    "is_admin": true
+  },
+  "admin003": {
+    "student_id": "admin003",
+    "name": "管理员C",
+    "college": "图书馆",
+    "major": "系统管理",
+    "password": "ae8ad1f74c322edb56832e0f41bfffa389463386dc3f26e8cb96802395949ec8",
+    "is_admin": true
   }
 }
