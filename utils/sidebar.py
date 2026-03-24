@@ -3,16 +3,6 @@ import streamlit as st
 
 MOBILE_CSS = """
 <style>
-/* ===== 引入思源黑体（Noto Sans SC） ===== */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
-
-/* 全局中文字体 */
-html, body, [class*="st-"], .stMarkdown, .stButton > button,
-.stTextInput input, .stSelectbox select, .stTextArea textarea,
-[data-testid="stMetric"], [data-testid="stMetricValue"] {
-    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif !important;
-}
-
 /* ===== 全局移动端适配 ===== */
 
 /* 移动端收起侧边栏 */
