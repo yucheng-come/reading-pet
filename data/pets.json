@@ -1,0 +1,18 @@
+{
+  "admin001": {
+    "student_id": "admin001",
+    "type": null,
+    "growth": 0,
+    "last_feed_date": "",
+    "feeds_today": 0,
+    "last_feed_day": "",
+    "status": "normal",
+    "equipped": {
+      "hat": null,
+      "scarf": null,
+      "background": null,
+      "scene": null
+    },
+    "created_at": "2026-03-24 00:52:23"
+  }
+}
