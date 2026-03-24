@@ -1,7 +1,7 @@
 """认证系统：注册 / 登录 / 修改密码 / 批量导入"""
 import hashlib
 from utils.data_io import read_json, update_dict, write_json
-from config import ADMIN_ACCOUNT
+from config import ADMIN_ACCOUNTS
 
 
 def _hash_password(password: str, student_id: str) -> str:
@@ -16,16 +16,20 @@ def id_card_to_password(id_card: str) -> str:
 
 def _init_admin():
     users = read_json("users.json")
-    aid = ADMIN_ACCOUNT["student_id"]
-    if aid not in users:
-        users[aid] = {
-            "student_id": aid,
-            "name": ADMIN_ACCOUNT["name"],
-            "college": ADMIN_ACCOUNT["college"],
-            "major": ADMIN_ACCOUNT["major"],
-            "password": _hash_password(ADMIN_ACCOUNT["password_raw"], aid),
-            "is_admin": True,
-        }
+    changed = False
+    for admin in ADMIN_ACCOUNTS:
+        aid = admin["student_id"]
+        if aid not in users:
+            users[aid] = {
+                "student_id": aid,
+                "name": admin["name"],
+                "college": admin["college"],
+                "major": admin["major"],
+                "password": _hash_password(admin["password_raw"], aid),
+                "is_admin": True,
+            }
+            changed = True
+    if changed:
         write_json("users.json", users)
 
 

@@ -7,14 +7,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # === 管理员 ===
-ADMIN_ACCOUNT = {
-    "student_id": "admin001",
-    "name": "管理员",
-    "college": "图书馆",
-    "major": "系统管理",
-    "password_raw": "admin888",
-    "is_admin": True,
-}
+ADMIN_ACCOUNTS = [
+    {"student_id": "admin001", "name": "管理员A", "college": "图书馆", "major": "系统管理", "password_raw": "admin888"},
+    {"student_id": "admin002", "name": "管理员B", "college": "图书馆", "major": "系统管理", "password_raw": "admin888"},
+    {"student_id": "admin003", "name": "管理员C", "college": "图书馆", "major": "系统管理", "password_raw": "admin888"},
+]
 
 # === 宠物等级 ===
 PET_LEVELS = [
