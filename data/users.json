@@ -1,0 +1,10 @@
+{
+  "admin001": {
+    "student_id": "admin001",
+    "name": "管理员",
+    "college": "图书馆",
+    "major": "系统管理",
+    "password": "e2c83c7999b1cccb51320a4d82c3f28b6508372061fa617fab1ad009a6e3b88e",
+    "is_admin": true
+  }
+}
